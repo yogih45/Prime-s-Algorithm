@@ -13,7 +13,7 @@ const Home = () => {
                 </p>
                 <div className="button-container">
                     <Link to="/simulate" className="start-button">
-                        Get's Started    
+                        Get Started    
                     </Link>
                 </div>
             </div>

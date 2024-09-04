@@ -56,7 +56,7 @@ const LeftPanel = styled.div`
   width: ${props => (props.showAnimation ? '25%' : '0%')};
   height: 150%;
   background-color: #333333;
-  transition: width 0.3s ease;
+  transition: width 0.3s eas  e;
   border: 1px solid #666666;
 `;
 
@@ -94,7 +94,7 @@ const GraphArea = styled.main`
   svg {
     width: 70%;
     height: 90%;
-    border: 1px solid #444444;
+    border:none;
     border-radius: 4px;
     background-color: ${props => props.backgroundColor};
     justify-content:center;
@@ -105,12 +105,13 @@ const GraphArea = styled.main`
 `;
 const BackgroundColorPicker = styled.input`
   position: absolute;
-  top:146%;
-  left: 50px;
+  top:90%;
+  left: 100px;
   padding: 10px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
+  width:200px;
 `;
 
 export default Simulate;

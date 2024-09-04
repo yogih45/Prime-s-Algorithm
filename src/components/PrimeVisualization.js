@@ -1,26 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import * as d3 from 'd3';
 import styled from 'styled-components';
-import { Controller } from 'react-spring';
 
 const PrimVisualization = ({ showAnimation }) => {
-  const [numVertices, setNumVertices] = useState(8);
-  const [vertexNames, setVertexNames] = useState(['A', 'B', 'C', 'D', 'E','F','G','H']);
+  const [numVertices, setNumVertices] = useState(6);
+  const [vertexNames, setVertexNames] = useState(['A', 'B', 'C', 'D', 'E','F']);
   const [adjMatrix, setAdjMatrix] = useState([
-    [0, 2, 0, 6, 0, 9, 5, 0],
-    [2, 0, 3, 8, 5, 2, 3, 3],
-    [0, 3, 0, 0, 7, 4, 5, 6],
-    [6, 8, 0, 0, 9, 2, 5, 0],
-    [0, 5, 7, 9, 0, 0, 5, 1],
-    [2, 6, 0, 8, 0, 3, 4, 0],
-    [7, 9, 3, 0, 8, 1, 2, 3],
-    [0, 7, 0, 8, 3, 0, 5, 0]
+    [0, 1, 3, 0, 0, 3 ],
+    [1, 0, 5, 1, 0, 0 ],
+    [3, 5, 0, 2, 1, 0 ],
+    [0, 1, 2, 0, 4, 0 ],
+    [0, 0, 1, 4, 0, 5 ],
+    [0, 0, 0, 0, 5, 0 ]
   ]);
+  const [error, setError] = useState('');
   const [mstEdges, setMstEdges] = useState([]);
   const [visited, setVisited] = useState(new Array(5).fill(false));
+  const [nodes, setNodes] = useState([]);
   const [speed, setSpeed] = useState(1000);
   const [startVertex, setStartVertex] = useState(0);
-  const [mstTotalCost, setMstTotalCost] = useState(0); 
+  const [mstTotalCost, setMstTotalCost] = useState(0);
+  const [log, setLog] = useState([]);
 
   const svgRef = React.useRef(null);
   const width = 600;
@@ -33,7 +33,7 @@ const PrimVisualization = ({ showAnimation }) => {
   }, [adjMatrix, mstEdges, visited, showAnimation]);
 
   useEffect(() => {
-    calculateMstCost(); // Calculate MST cost whenever mstEdges changes
+    calculateMstCost();
   }, [mstEdges]);
 
   const visualizeGraph = () => {
@@ -42,7 +42,6 @@ const PrimVisualization = ({ showAnimation }) => {
       .attr('height', height);
 
     svg.selectAll("*").remove();
-
 
     const radius = 250;
     const centerX = width / 2;
@@ -55,6 +54,8 @@ const PrimVisualization = ({ showAnimation }) => {
       x: centerX + radius * Math.cos(index * angleStep),
       y: centerY + radius * Math.sin(index * angleStep)
     }));
+
+    setNodes(nodes);
 
     const links = [];
     adjMatrix.forEach((row, i) => {
@@ -71,7 +72,7 @@ const PrimVisualization = ({ showAnimation }) => {
       .attr('class', 'link');
 
     link.append('line')
-      .style('stroke', 'blue')
+      .style('stroke', 'yellow')
       .style('stroke-width', d => Math.sqrt(d.weight))
       .attr('x1', d => nodes[d.source].x)
       .attr('y1', d => nodes[d.source].y)
@@ -87,7 +88,6 @@ const PrimVisualization = ({ showAnimation }) => {
       .style("font-size", "25px")
       .style('font-family', 'Arial, sans-serif');
 
-
     const node = svg.selectAll('.node')
       .data(nodes)
       .enter().append('g')
@@ -95,12 +95,12 @@ const PrimVisualization = ({ showAnimation }) => {
 
     node.append('circle')
       .attr('r', 30)
-      .style('fill', d => visited[d.id] ? 'green' : 'pink')
+      .style('fill', d => visited[d.id] ? 'red' : 'green')
       .attr('cx', d => d.x)
       .attr('cy', d => d.y)
-      .style('stroke', 'voilet') // Border color
-      .style('stroke-width', 10)
-      .style('filter', 'url(#drop-shadow)'); // Border width
+      .style('stroke', 'white')
+      .style('stroke-width', 1)
+      .style('filter', 'url(#drop-shadow)');
 
     node.append('text')
       .attr('dx', d => d.x - 10)
@@ -113,41 +113,103 @@ const PrimVisualization = ({ showAnimation }) => {
 
     const mstLink = svg.selectAll('.mst-link')
       .data(mstEdges)
-      .enter().append('line')
-      .attr('class', 'mst-link')
-      .style('stroke', 'red')
-      .style('stroke-width', 2);
+      .enter().append('g')
+      .attr('class', 'mst-link');
 
-    mstLink.attr('x1', d => nodes[d.source].x)
+    mstLink.append('line')
+      .style('stroke', 'red')
+      .style('stroke-width', 2)
+      .attr('x1', d => nodes[d.source].x)
       .attr('y1', d => nodes[d.source].y)
       .attr('x2', d => nodes[d.target].x)
       .attr('y2', d => nodes[d.target].y);
-  };
 
+    mstLink.append('text')
+      .attr('x', d => (nodes[d.source].x + nodes[d.target].x) / 2)
+      .attr('y', d => (nodes[d.source].y + nodes[d.target].y) / 2)
+      .text(d => d.weight)
+      .style('fill', 'white')
+      .style("font-weight", "bold")
+      .style("font-size", "20px")
+      .style('font-family', 'Arial, sans-serif');
+
+    return links; // Return links for use in asyncPrimAlgorithm
+  };
   const handleMatrixSubmit = (event) => {
     event.preventDefault();
     const matrixText = event.target.matrix.value;
     const newMatrix = matrixText.split('\n').map(row => row.trim().split(/\s+/).map(Number));
+  
+    // Check for non-numeric characters and negative numbers
+    const containsInvalid = newMatrix.some(row => 
+      row.some(value => isNaN(value) || value < 0)
+    );
+  
+    if (containsInvalid) {
+      alert('Adjacency matrix must contain only non-negative numbers and alphabets are not allowed');
+      return;
+    }
+  
+    // Check if the dimensions match the number of vertices
+    if (newMatrix.length !== numVertices || newMatrix.some(row => row.length !== numVertices)) {
+      alert('The dimensions of the adjacency matrix must match the number of vertices to be a connected graph.');
+      return;
+    }
+  
+    // Check if the graph is connected using BFS
+    const isConnected = (matrix) => {
+      const visited = new Array(matrix.length).fill(false);
+      const queue = [0]; // Start BFS from the first vertex
+      visited[0] = true;
+  
+      while (queue.length > 0) {
+        const vertex = queue.shift();
+        for (let i = 0; i < matrix.length; i++) {
+          if (matrix[vertex][i] !== 0 && !visited[i]) {
+            visited[i] = true;
+            queue.push(i);
+          }
+        }
+      }
+  
+      return visited.every(v => v === true);
+    };
+  
+    if (!isConnected(newMatrix)) {
+      alert('The graph must be connected. Please check your adjacency matrix.');
+      return;
+    }
+  
+    // If the matrix is valid, update the state
     setAdjMatrix(newMatrix);
-    setNumVertices(newMatrix.length);
     setMstEdges([]);
     setVisited(new Array(newMatrix.length).fill(false));
   };
+  
+  
+  
 
   const handleVerticesSubmit = (event) => {
     event.preventDefault();
     const newNumVertices = parseInt(event.target.numVertices.value);
     const newVertexNames = event.target.vertexNames.value.split(',').map(name => name.trim());
+  
+    if (newNumVertices !== newVertexNames.length) {
+      alert('The number of vertices must match the number of vertex names.');
+      return;
+    }
+  
     setNumVertices(newNumVertices);
     setVertexNames(newVertexNames);
     setAdjMatrix(Array(newNumVertices).fill(0).map(() => Array(newNumVertices).fill(0)));
     setMstEdges([]);
     setVisited(new Array(newNumVertices).fill(false));
   };
+  
 
   const handleStartVertexSubmit = (event) => {
     event.preventDefault();
-    const start = parseInt(event.target.startVertex.value);
+    const start = vertexNames.indexOf(event.target.startVertex.value.trim());
     if (start >= 0 && start < numVertices) {
       setStartVertex(start);
     } else {
@@ -162,12 +224,15 @@ const PrimVisualization = ({ showAnimation }) => {
 
     newVisited[startVertex] = true;
 
-    const updateStateWithDelay = (edges, visitedCopy) => {
+    const updateStateWithDelay = (edges, visitedCopy, message) => {
       setMstEdges([...edges]);
       setVisited([...visitedCopy]);
+      setLog(prevLog => [...prevLog, message]);
     };
 
-    const asyncPrimAlgorithm = async () => { 
+    const links = visualizeGraph(); // Get links here
+
+    const asyncPrimAlgorithm = async () => {
       while (newMstEdges.length < numVertices - 1) {
         let minWeight = Infinity;
         let minFrom = -1;
@@ -190,8 +255,20 @@ const PrimVisualization = ({ showAnimation }) => {
           newVisited[minTo] = true;
           mstWeight += minWeight;
 
-          updateStateWithDelay(newMstEdges, newVisited);
-          await sleep(speed);
+          // Generate detailed log message
+          const logMessage = `
+          <div>
+            <strong><span style="color: black;">Iteration ${newMstEdges.length}:</span></strong><br>
+            Selected edge: <strong>${vertexNames[minFrom]} - ${vertexNames[minTo]}</strong> with weight <span>${minWeight}</span>.<br>
+            Current MST weight: <span>${mstWeight}</span>.<br>
+            Visited vertices: <span style="color: white;">${vertexNames.filter((_, idx) => newVisited[idx]).join(', ')}</span>.<br>
+            Remaining edges: <span style="color: yellow;">${links.filter(link => !newMstEdges.some(mstEdge => (mstEdge.source === link.source && mstEdge.target === link.target) || (mstEdge.source === link.target && mstEdge.target === link.source))).map(link => `${vertexNames[link.source]}-${vertexNames[link.target]}(${link.weight})`).join(', ')}</span>.
+          </div>
+        `;
+
+
+          await updateStateWithDelay(newMstEdges, newVisited, logMessage);
+          await new Promise(resolve => setTimeout(resolve, speed));
         }
       }
     };
@@ -199,154 +276,289 @@ const PrimVisualization = ({ showAnimation }) => {
     asyncPrimAlgorithm();
   };
 
-  const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
   const calculateMstCost = () => {
-    let totalCost = 0;
-    mstEdges.forEach(edge => {
-      totalCost += edge.weight;
-    });
+    const totalCost = mstEdges.reduce((sum, edge) => sum + edge.weight, 0);
     setMstTotalCost(totalCost);
   };
 
-  return (
-    <div>
-      <ControlPanel>
-        <ControlSection>
-          <SpeedControl>
-            <h3 style={{ fontFamily: 'Arial' }}>Set Speed</h3>
-
-            <Button
-              gradient="linear-gradient(to right, #0056b3, #0099ff)"
-
-              onClick={() => setSpeed(500)}
-            >
-              0.5x
-            </Button>
-            <Button
-              gradient="linear-gradient(to right, #00cc66, #33ccff)"
-
-              onClick={() => setSpeed(1000)}
-            >
-              1x
-            </Button>
-            <Button
-              gradient="linear-gradient(to right, #ff6600, #ffcc00)"
-
-              onClick={() => setSpeed(2000)}
-            >
-              2x
-            </Button>
-          </SpeedControl>
-
-          <Button
-            gradient="linear-gradient(to right, #b300b3, #ff0066)"
-            width="250px"
-            height="45px"
-            marginTop="100px"
-            onClick={runPrimAlgorithm}
-          >
-            RUN Prim
-          </Button>
-        </ControlSection>
-        <Button
-          gradient="linear-gradient(to right, #993366, #00ccff)"
-          width="290px"
-          height="50px"
-          marginLeft="10px" // Use marginLeft here
-          onClick={() =>
-            setAdjMatrix(Array(numVertices).fill(0).map(() => Array(numVertices).fill(0)))
-          }
-        >
-          Clear Canvas
-        </Button>
-
-
-        {mstEdges.length > 0 && (
-          <div>
-            <h3 style={{ fontFamily: 'Arial', color: 'white' }}>MST Total Cost: {mstTotalCost}</h3>
-          </div>
-        )}
-        <div className='Form-input'>
-          <form onSubmit={handleVerticesSubmit}>
-            <h3 style={{ fontFamily: 'Arial', color: 'white' }}>Create Graph</h3>
-            <input type="number" name="numVertices" defaultValue={numVertices} placeholder='Enter the Number of Vertices' />
-            <input type="text" name="vertexNames" defaultValue={vertexNames.join(',')} placeholder='Enter the Name of Vertices' />
-
-            <button className='btn1' type="submit">Set Vertices</button>
-          </form>
-          <form onSubmit={handleMatrixSubmit}>
-            <h3 style={{ fontFamily: 'Arial', color: 'white' }}>
-              Adjacency Matrix </h3>
-            <textarea name="matrix" rows="10" cols="30" defaultValue={adjMatrix.map(row => row.join(' ')).join('\n')} />
+  const handleOpenNewWindow = () => {
+    if (mstEdges.length > 0) {
+      const svgContent = `
+        <h2 style={backgroundColor:'black', border: 'none' }>Minimum cost Spanning Tree  </h2>
+        <svg xmlns="http://www.w3.org/2000/svg" width="800" height="600">
         
-            <button className='btn2' type="submit">Create Graph</button>
-          </form>
-          <form onSubmit={handleStartVertexSubmit}>
+          <!-- Black background -->
+          <rect width="90%" height="100%" fill="black" />
+          
+          
+          ${mstEdges.map(edge => `
+            <g>
+              <line 
+                x1="${nodes[edge.source].x}" 
+                y1="${nodes[edge.source].y}" 
+                x2="${nodes[edge.target].x}" 
+                y2="${nodes[edge.target].y}" 
+                stroke="red" 
+                stroke-width="2" 
+              />
+              <text 
+                x="${(nodes[edge.source].x + nodes[edge.target].x) / 2}" 
+                y="${(nodes[edge.source].y + nodes[edge.target].y) / 2}" 
+                fill="white"
+                style="font-weight: bold; font-size: 20px; font-family: Arial; color:black"
+              >${edge.weight}</text>
+            </g>
+          `).join('')}
+          
+          ${nodes.map(node => `
+            <g>
+              <circle
+                cx="${node.x}" 
+                cy="${node.y}" 
+                r="30" 
+                fill="green" 
+                stroke="white" 
+                stroke-width="1" 
+              />
+              <text
+                x="${node.x - 10}" 
+                y="${node.y + 5}" 
+                fill="white"
+                style="font-weight: bold; font-size: 15px; font-family: Arial;"
+              >${vertexNames[node.id]}</text>
+            </g>
+          `).join('')}
+        </svg>
+      `;
+      const svgWindow = window.open('', '_blank','width=600,height=600');
+      svgWindow.document.write(svgContent);
+      svgWindow.document.close();
+    }
+  };
+  
+  const handleSpeedChange = (event) => {
+    const newSpeed = parseFloat(event.target.value);
+    setSpeed(newSpeed);
+  };
 
-          </form>
-        </div>
+  const clearCanvas = () => {
+    setMstEdges([]);
+    setVisited(new Array(numVertices).fill(false));
+    setLog([]); // Clear the log as well
+  };
 
-      </ControlPanel>
-
-    </div>
+  return (
+    <Container>
+      <Sidebar>
+        <SpeedControl>
+          <SpeedButton onClick={() => setSpeed(2000)}>0.5x</SpeedButton>
+          <SpeedButton onClick={() => setSpeed(1000)}>1x</SpeedButton>
+          <SpeedButton onClick={() => setSpeed(500)}>2x</SpeedButton>
+        </SpeedControl>
+        <RunButton onClick={runPrimAlgorithm}>RUN Prim</RunButton>
+        <ClearButton onClick={clearCanvas}>Clear Canvas</ClearButton>
+        <ExportButton onClick={handleOpenNewWindow}>Show MST</ExportButton>
+        <GraphForm onSubmit={handleVerticesSubmit}>
+          <label>Number of vertices:</label>
+          <Input type="number" name="numVertices" defaultValue={numVertices} />
+          <label>Vertex names:</label>
+          <Input style={{ width: '200px', height: '5px', borderRadius: '5px', marginTop: '-10px' }} type="text" name="vertexNames" defaultValue={vertexNames.join(',')} />
+          <SubmitButton type="submit">Set Vertices</SubmitButton>
+        </GraphForm>
+        <MatrixForm onSubmit={handleMatrixSubmit}>
+          <label>Adjacency Matrix:</label>
+          <textarea name="matrix" rows="5" cols="20" defaultValue={adjMatrix.map(row => row.join(' ')).join('\n')}></textarea>
+          <SubmitButton type="submit">Set Matrix</SubmitButton>
+        </MatrixForm>
+        <StartVertexForm onSubmit={handleStartVertexSubmit}>
+          <label>Start Vertex:</label>
+          <Input style={{ width: '200px', marginTop: '-10px', height: '5px' }} type="text" name="startVertex" defaultValue={vertexNames[startVertex]} />
+          <SubmitButton type="submit">Set Start Vertex</SubmitButton>
+        </StartVertexForm>
+      </Sidebar>
+      <Main>
+        <svg id="graph-svg" style={{ marginTop: '-10px', border: 'none' }} ref={svgRef}></svg>
+        <LogContainer>
+      <Log>
+        {log.map((entry, index) => (
+          <LogEntry key={index} dangerouslySetInnerHTML={{ __html: entry }} />
+        ))}
+      </Log>
+    </LogContainer>
+      </Main>
+    </Container>
   );
 };
 
-const SpeedControl = styled.div`
-  margin-bottom: 20px;
-  padding: 20px;
-  color: white;
-  box-shadow: 0px 0px 4px 0px gray ;
-  border-radius: 10px;
-
-  width:auto;
+const Container = styled.div`
+  display: flex;
+  height: 150vh;
+  width: 100%;
 `;
 
-const ControlPanel = styled.div`
+const Sidebar = styled.div`
+  width: 600px;
+  background: #2f2f2f;
+  padding: 20px;
+  padding-left: 40px;
+  padding-right: 40px;
+  margin-left: 40px;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  gap: 20px;
+  color: #fff;
+`;
+
+const Main = styled.div`
+  flex-grow: 1;
+  color: #fff;
+  text-align: center;
+  padding: 20px;
+  padding-left: 150px;
+  position: relative;
+  margin-top: 100px;
+  margin-left: 230px;
+  width: 1500px;
+`;
+
+const SpeedControl = styled.div`
+  display: flex;
+  justify-content: space-between;
+`;
+
+const SpeedButton = styled.button`
+  width: 30%;
   padding: 10px;
-`;
-
-const ControlSection = styled.div`
-   margin-bottom: 20px;
-   border: 0px solid pink;
-   padding:20px;
-   color:white;
-   box-shadow: 0px 0px 4px 0px gray ;
-   border-radius:10px;
-   margin-left:10px;
-   
-`;
-
-const ButtonSection = styled.div`
-  margin-bottom: 20px;
-`;
-
-
-const Button = styled.button`
-  padding: 10px 20px;
-  margin: 10px;
-  color: white;
+  background: #444;
+  color: #fff;
   border: none;
-  border-radius: 4px;
+  border-radius: 5px;
   cursor: pointer;
-  margin-right:15px;
-  background: ${props => props.gradient};
-  width: ${props => props.width || 'auto'};
-  height: ${props => props.height || 'auto'};
-  margin-left: ${props => props.marginLeft || '0px'};
-
 
   &:hover {
-    background: linear-gradient(to right, #0099ff, #0056b3);
+    background: #555;
   }
 `;
 
+const RunButton = styled.button`
+  width: 200px;
+  padding: 10px;
+  background: #ff1493;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
 
+  &:hover {
+    background: #ff69b4;
+  }
+`;
 
+const ClearButton = styled.button`
+  width: 100%;
+  padding: 10px;
+  background: #1e90ff;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
 
+  &:hover {
+    background: #1c86ee;
+  }
+`;
+
+const GraphForm = styled.form`
+  display: flex;
+  flex-direction: column;
+  gap: 0px;
+
+  label {
+    font-size: 14px;
+  }
+`;
+
+const MatrixForm = styled.form`
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  label {
+    font-size: 14px;
+  }
+`;
+
+const StartVertexForm = styled.form`
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  label {
+    font-size: 14px;
+  }
+`;
+
+const Input = styled.input`
+  margin-top: -20px;
+  padding: 5px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  width: 190px;
+`;
+
+const SubmitButton = styled.button`
+  padding: 10px;
+  background: #32cd32;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  width: 190px;
+
+  &:hover {
+    background: #3cb371;
+  }
+`;
+
+const ExportButton = styled.button`
+  width: 100%;
+  padding: 10px;
+  background: #ffa500;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+
+  &:hover {
+    background: #ff8c00;
+  }
+`;
+
+const LogContainer = styled.div`
+  position: fixed;
+  bottom: 10px;
+  right: 10px;
+  background: rgba(0, 0, 0, 0, 0);
+  color: #fff;
+  padding: 10px;
+  border-radius: 10px;
+  max-height: 500px;
+  overflow-y: auto;
+  width: 400px;
+  font-size: 15px;
+  text-align: left;
+`;
+
+const Log = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+`;
+
+const LogEntry = styled.div`
+  padding: 15px;
+  background:green;
+  border-radius: 7px;
+`;
 
 export default PrimVisualization;

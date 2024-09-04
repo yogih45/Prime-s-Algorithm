@@ -9,7 +9,7 @@ const Navbar = () => {
             <div className="navbar-container">
                 <img className='prime-logo' src={prime} />
                 <Link to="/home" className="navbar-logo">
-                    Prime's World
+                    Learn Prim's
                 </Link>
                 <ul className="nav-menu">
                     <li className="nav-item">

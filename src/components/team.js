@@ -27,7 +27,7 @@ function Contact() {
                 </div>
                 <div class="team-member">
                     <img src={shubham} alt="Team Member3" />
-                    <h2>Shubham</h2>
+                    <h2>Shubham Upadhyay</h2>
                     <p class="content-p">RV College of Engineering, Banglore</p>
                     <p class="title">Pursuing Bachelor of Engineering<br></br>Department of Information Science and Engineering</p>
                     
